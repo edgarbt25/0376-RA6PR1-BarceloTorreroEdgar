@@ -1,0 +1,16 @@
+# Sesiones de PHP (creadas automáticamente)
+/sessions/
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Configuración local (si la hay)
+config/local.php
+
+# Archivos temporales
+*.tmp
+*.temp

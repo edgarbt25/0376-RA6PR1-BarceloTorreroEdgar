@@ -1,0 +1,57 @@
+# Vinewood Vice - Sistema de Seguimiento de Horas
+# Configuración de seguridad Apache
+
+# Prevenir listado de directorios
+Options -Indexes
+
+# Proteger archivos sensibles
+<FilesMatch "^\.">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Proteger archivos de configuración
+<Files "database.php">
+    Order allow,deny
+    Deny from all
+</Files>
+
+# Redireccionar a HTTPS (descomentar en producción)
+# RewriteEngine On
+# RewriteCond %{HTTPS} off
+# RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Páginas de error personalizadas
+ErrorDocument 403 /index.php
+ErrorDocument 404 /index.php
+ErrorDocument 500 /index.php
+
+# Cabeceras de seguridad
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# Prevenir acceso a carpetas sensibles
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+    
+    # Bloquear acceso a carpetas del sistema
+    RewriteRule ^config/ - [F,L]
+    RewriteRule ^includes/ - [F,L]
+    RewriteRule ^sql/ - [F,L]
+    RewriteRule ^vendor/ - [F,L]
+    
+    # Permitir solo style.css en la raíz
+    RewriteCond %{REQUEST_URI} !^/style\.css$
+    RewriteCond %{REQUEST_URI} !^/index\.php$
+    RewriteCond %{REQUEST_URI} !^/login\.php$
+    RewriteCond %{REQUEST_URI} !^/register\.php$
+    RewriteCond %{REQUEST_URI} !^/logout\.php$
+    RewriteCond %{REQUEST_URI} !^/dashboard\.php$
+    RewriteCond %{REQUEST_URI} !^/admin/
+    RewriteCond %{REQUEST_URI} !^/\.htaccess$
+</IfModule>
