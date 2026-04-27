@@ -6,7 +6,7 @@
 
 // Parámetros de conexión a MySQL
 // Configuración por defecto para funcionar con servidor local
-define('DB_HOST', '127.0.0.1');
+define('DB_HOST', 'localhost');
 define('DB_PORT', '3306');
 define('DB_NAME', 'vinewood_vice');
 define('DB_USER', 'root');
