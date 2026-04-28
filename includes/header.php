@@ -23,8 +23,12 @@
                     <?php if (isset($user) && $user !== null): ?>
                         <!-- Menú para usuarios autenticados -->
                         <a href="/dashboard.php" class="nav-link<?php echo basename($_SERVER['PHP_SELF']) === 'dashboard.php' ? ' active' : ''; ?>">
-                            <span>📊</span>
-                            <span>Mi Panel</span>
+                            <span>⏰</span>
+                            <span>Fichar</span>
+                        </a>
+                        <a href="/history.php" class="nav-link<?php echo basename($_SERVER['PHP_SELF']) === 'history.php' ? ' active' : ''; ?>">
+                            <span>📋</span>
+                            <span>Mi Historial</span>
                         </a>
                         
                         <?php if ($user['role'] === 'manager'): ?>

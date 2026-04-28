@@ -414,3 +414,345 @@ body::before {
 
 .alert-info {
     background: linear-gradient(135deg, var(--info-bg) 0%, rgba(59,
+/* ========================================
+   BOTON FICHAJE - DISEÑO PREMIUM
+   ======================================== */
+.clock-button-container {
+    perspective: 1000px;
+    margin: 2rem 0;
+}
+
+.clock-in-btn {
+    background: var(--success-gradient) !important;
+    border: none !important;
+    border-radius: var(--radius-2xl) !important;
+    padding: 2rem !important;
+    font-size: 1.5rem !important;
+    font-weight: 700 !important;
+    color: white !important;
+    width: 100% !important;
+    position: relative !important;
+    overflow: hidden !important;
+    box-shadow: 0 15px 40px -10px rgba(16, 185, 129, 0.5), 0 0 0 0 rgba(16, 185, 129, 0.4) !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    transform-style: preserve-3d !important;
+    cursor: pointer !important;
+}
+
+.clock-in-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition: left 0.7s ease;
+}
+
+.clock-in-btn:hover {
+    transform: translateY(-4px) scale(1.02) !important;
+    box-shadow: 0 25px 50px -12px rgba(16, 185, 129, 0.6), 0 0 0 20px rgba(16, 185, 129, 0) !important;
+}
+
+.clock-in-btn:hover::before {
+    left: 100%;
+}
+
+.clock-in-btn:active {
+    transform: translateY(-2px) scale(0.98) !important;
+}
+
+.clock-out-btn {
+    background: var(--danger-gradient) !important;
+    border: none !important;
+    border-radius: var(--radius-2xl) !important;
+    padding: 2rem !important;
+    font-size: 1.5rem !important;
+    font-weight: 700 !important;
+    color: white !important;
+    width: 100% !important;
+    position: relative !important;
+    overflow: hidden !important;
+    box-shadow: 0 15px 40px -10px rgba(239, 68, 68, 0.5), 0 0 0 0 rgba(239, 68, 68, 0.4) !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    cursor: pointer !important;
+    animation: pulse-danger 2s infinite !important;
+}
+
+.clock-out-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition: left 0.7s ease;
+}
+
+.clock-out-btn:hover {
+    transform: translateY(-4px) scale(1.02) !important;
+    box-shadow: 0 25px 50px -12px rgba(239, 68, 68, 0.6), 0 0 0 20px rgba(239, 68, 68, 0) !important;
+}
+
+.clock-out-btn:hover::before {
+    left: 100%;
+}
+
+@keyframes pulse-danger {
+    0% {
+        box-shadow: 0 15px 40px -10px rgba(239, 68, 68, 0.5), 0 0 0 0 rgba(239, 68, 68, 0.4);
+    }
+    70% {
+        box-shadow: 0 15px 40px -10px rgba(239, 68, 68, 0.5), 0 0 0 15px rgba(239, 68, 68, 0);
+    }
+    100% {
+        box-shadow: 0 15px 40px -10px rgba(239, 68, 68, 0.5), 0 0 0 0 rgba(239, 68, 68, 0);
+    }
+}
+
+.status-active-card {
+    background: var(--success-bg);
+    border-left: 4px solid var(--success);
+    border-radius: var(--radius-xl);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    position: relative;
+    overflow: hidden;
+    animation: slideInUp 0.5s ease;
+}
+
+.status-active-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 150px;
+    height: 150px;
+    background: radial-gradient(circle, rgba(16, 185, 129, 0.1) 0%, transparent 70%);
+    border-radius: 50%;
+    transform: translate(50px, -50px);
+}
+
+.status-active-dot {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    background: var(--success);
+    border-radius: 50%;
+    margin-right: 8px;
+    animation: pulse-dot 1.5s infinite;
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+}
+
+@keyframes pulse-dot {
+    0% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 15px rgba(16, 185, 129, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    }
+}
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.big-time-display {
+    font-size: 3rem !important;
+    font-weight: 800 !important;
+    color: var(--success) !important;
+    font-family: var(--font-mono) !important;
+    letter-spacing: -2px !important;
+    margin: 1rem 0 !important;
+}
+
+.time-label {
+    font-size: 0.875rem !important;
+    color: var(--gray-500) !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1px !important;
+    font-weight: 600 !important;
+}
+
+/* Selector de proyectos mejorado */
+.project-select {
+    padding: 1.25rem 1rem !important;
+    font-size: 1.1rem !important;
+    border: 2px solid var(--gray-200) !important;
+    border-radius: var(--radius-xl) !important;
+    margin-bottom: 1.5rem !important;
+    transition: all 0.3s ease !important;
+    background: white !important;
+    cursor: pointer !important;
+}
+
+.project-select:focus {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1) !important;
+    outline: none !important;
+    transform: translateY(-2px) !important;
+}
+
+/* ========================================
+   PANEL ADMINISTRADOR - LISTA ROJA
+   ======================================== */
+.red-list-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.red-list-item {
+    background: white;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-xl);
+    padding: 1.5rem;
+    transition: all 0.3s ease;
+    border-left: 4px solid var(--danger);
+    box-shadow: var(--shadow-sm);
+}
+
+.red-list-item:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.red-list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.employee-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.employee-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: var(--radius-full);
+    background: var(--danger-gradient);
+    color: white;
+    font-weight: 800;
+    font-size: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-md);
+}
+
+.employee-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--gray-900);
+    margin: 0;
+}
+
+.employee-email {
+    font-size: 0.875rem;
+    color: var(--gray-500);
+}
+
+.employee-hours {
+    text-align: right;
+}
+
+.hours-worked {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--gray-700);
+    font-family: var(--font-mono);
+}
+
+.hours-label {
+    font-size: 0.75rem;
+    color: var(--gray-500);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 600;
+}
+
+.incidences-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+.incidence-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-full);
+    font-size: 0.875rem;
+    font-weight: 600;
+    animation: slideInRight 0.4s ease;
+}
+
+.incidence-late {
+    background: var(--warning-bg);
+    color: var(--warning);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.incidence-early {
+    background: var(--danger-bg);
+    color: var(--danger);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.incidence-hours {
+    background: #fff7ed;
+    color: #f97316;
+    border: 1px solid rgba(249, 115, 22, 0.3);
+}
+
+.incidence-missing {
+    background: var(--danger-bg);
+    color: var(--danger);
+    border: 2px solid var(--danger);
+    font-weight: 800;
+    animation: pulse-danger 1.5s infinite;
+}
+
+.incidence-icon {
+    font-size: 1.1rem;
+}
+
+.incidence-value {
+    font-weight: 800;
+    margin-left: 0.5rem;
+    font-family: var(--font-mono);
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.stat-icon-red {
+    background: var(--danger-gradient);
+    color: white;
+}

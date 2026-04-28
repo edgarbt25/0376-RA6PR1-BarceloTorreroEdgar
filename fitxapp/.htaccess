@@ -1,0 +1,19 @@
+RewriteEngine On
+RewriteBase /0376-RA6PR1-BarceloTorreroEdgar/fitxapp/
+
+# Configuración PHP para rutas
+php_value session.cookie_path /0376-RA6PR1-BarceloTorreroEdgar/fitxapp/
+
+Options -Indexes
+DirectoryIndex index.php
+
+# Seguridad
+<FilesMatch "\.(env|sql|ini|log)$">
+    Require all denied
+</FilesMatch>
+
+# Cabeceras
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+</IfModule>

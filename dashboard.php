@@ -16,6 +16,58 @@ $user = getCurrentUser();
 $pageTitle = 'Mi Panel';
 $showBackButton = false;
 
+// Manejar acciones de fichaje
+$errors = [];
+$success = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    if (!validateCSRFToken($_POST['csrf_token'] ?? '')) {
+        $errors[] = 'Token de seguridad inválido';
+    } else {
+        try {
+            $pdo = getDBConnection();
+            
+            if ($_POST['action'] === 'clock_in') {
+                // Registrar entrada
+                $projectId = !empty($_POST['project_id']) ? (int)$_POST['project_id'] : null;
+                
+                $stmt = $pdo->prepare("
+                    INSERT INTO time_logs (user_id, project_id, clock_in) 
+                    VALUES (:user_id, :project_id, NOW())
+                ");
+                $stmt->execute([
+                    ':user_id' => $user['id'],
+                    ':project_id' => $projectId
+                ]);
+                
+                $success = '✅ Entrada registrada correctamente. ¡Buen trabajo!';
+                header('Location: dashboard.php');
+                exit;
+                
+            } elseif ($_POST['action'] === 'clock_out') {
+                // Registrar salida
+                $stmt = $pdo->prepare("
+                    UPDATE time_logs 
+                    SET clock_out = NOW() 
+                    WHERE user_id = :user_id 
+                        AND clock_out IS NULL 
+                        AND DATE(clock_in) = CURDATE()
+                    ORDER BY clock_in DESC 
+                    LIMIT 1
+                ");
+                $stmt->execute([':user_id' => $user['id']]);
+                
+                $success = '✅ Salida registrada correctamente. Horas guardadas.';
+                header('Location: dashboard.php');
+                exit;
+            }
+            
+        } catch (PDOException $e) {
+            $errors[] = 'Error al registrar fichaje: ' . $e->getMessage();
+        }
+    }
+}
+
 // Función para formatear minutos a horas
 function formatMinutesToHours($minutes) {
     if ($minutes === null || $minutes == 0) return '0h 0m';
@@ -83,6 +135,11 @@ try {
     $stmt->execute([':user_id' => $user['id']]);
     $recentLogs = $stmt->fetchAll();
     
+    // Obtener proyectos disponibles
+    $projects = [];
+    $stmt = $pdo->query("SELECT id, name FROM projects ORDER BY name ASC");
+    $projects = $stmt->fetchAll();
+
     // Estadísticas para manager/admin (todos los empleados)
     $totalEmployees = 0;
     $activeNow = 0;
@@ -280,25 +337,67 @@ include 'includes/header.php';
         </div>
         
     <?php else: ?>
-        <!-- Panel de Empleado -->
-        <div class="coming-soon">
-            <div class="coming-soon-header">
-                <span class="coming-soon-icon">🔜</span>
-                <h3 class="coming-soon-title">Próximamente (ITERACIÓN 2)</h3>
+        <!-- Panel de Empleado - BOTON DE FICHAJE -->
+        <div class="card mb-xl">
+            <div class="card-header">
+                <h3 class="card-title">⏰ Registro de Jornada</h3>
             </div>
-            <div class="feature-preview">
-                <div class="preview-item">
-                    <span class="preview-icon">⏰</span>
-                    <span class="preview-text">Botón de Entrada/Salida (Clock In/Out) - Registra tu jornada con un clic</span>
-                </div>
-                <div class="preview-item">
-                    <span class="preview-icon">📁</span>
-                    <span class="preview-text">Asociar tiempo a proyectos - Vincula tus horas a proyectos específicos</span>
-                </div>
-                <div class="preview-item">
-                    <span class="preview-icon">📝</span>
-                    <span class="preview-text">Notas de actividad - Añade comentarios a tus registros</span>
-                </div>
+            <div class="card-body">
+                
+                <?php if (!empty($errors)): ?>
+                    <div class="alert alert-error mb-lg">
+                        <?php foreach ($errors as $error): ?>
+                            <p><?php echo htmlspecialchars($error); ?></p>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+                
+                <?php if (!empty($success)): ?>
+                    <div class="alert alert-success mb-lg">
+                        <p><?php echo htmlspecialchars($success); ?></p>
+                    </div>
+                <?php endif; ?>
+                
+                <?php if (!$todayLog || $todayLog['clock_out'] !== null): ?>
+                    <!-- BOTON DE ENTRADA -->
+                    <form method="POST" action="dashboard.php">
+                        <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
+                        <input type="hidden" name="action" value="clock_in">
+                        
+                        <div class="form-group">
+                            <label class="form-label">Selecciona el proyecto en el que vas a trabajar:</label>
+                            <select name="project_id" class="form-control form-control-lg project-select" required>
+                                <option value="">-- Selecciona un proyecto --</option>
+                                <?php foreach ($projects as $project): ?>
+                                    <option value="<?php echo $project['id']; ?>"><?php echo htmlspecialchars($project['name']); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-success btn-lg btn-block mt-lg clock-in-btn">
+                            ✅ REGISTRAR ENTRADA
+                        </button>
+                    </form>
+                <?php else: ?>
+                    <!-- BOTON DE SALIDA -->
+                    <div class="text-center mb-lg">
+                        <div class="alert alert-info">
+                            <p><strong>✅ Estás actualmente fichado</strong></p>
+                            <p>Entrada registrada a las <strong><?php echo date('H:i', strtotime($todayLog['clock_in'])); ?></strong></p>
+                            <p>Tiempo trabajado hasta ahora: <strong><?php echo formatMinutesToHours($todayLog['minutes_worked']); ?></strong></p>
+                        </div>
+                    </div>
+                    
+                    <form method="POST" action="dashboard.php">
+                        <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
+                        <input type="hidden" name="action" value="clock_out">
+                        
+                        <button type="submit" class="btn btn-danger btn-lg btn-block clock-out-btn">
+                            🔴 FINALIZAR JORNADA
+                        </button>
+                    </form>
+                <?php endif; ?>
+                
             </div>
         </div>
     <?php endif; ?>

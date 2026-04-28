@@ -1,90 +1,147 @@
 <?php
 /**
- * Panel de Administración
+ * Panel de Administrador - Control de Asistencia
  * Vinewood Vice - Sistema de Seguimiento de Horas
  */
 
 require_once __DIR__ . '/../includes/auth.php';
 
-// Requerir rol de administrador
-requireAdmin('../login.php');
+// Requerir ser administrador
+requireAdmin('../index.php');
 
-// Obtener datos del usuario actual
 $user = getCurrentUser();
+$pageTitle = 'Panel de Administración';
+$showBackButton = true;
 
-// Configuración de página
-$pageTitle = 'Administración';
-$currentPage = 'admin';
-
-// Obtener estadísticas generales
 try {
     $pdo = getDBConnection();
-    
-    // Total de usuarios por rol
-    $stmt = $pdo->query("
-        SELECT role, COUNT(*) as count 
-        FROM users 
-        GROUP BY role
-    ");
-    $usersByRole = $stmt->fetchAll();
-    $roleCounts = [];
-    foreach ($usersByRole as $row) {
-        $roleCounts[$row['role']] = $row['count'];
-    }
-    
-    // Total de proyectos
-    $stmt = $pdo->query("SELECT COUNT(*) as total FROM projects");
-    $totalProjects = $stmt->fetch()['total'];
-    
-    // Horas totales registradas
-    $stmt = $pdo->query("
-        SELECT SUM(TIMESTAMPDIFF(MINUTE, clock_in, COALESCE(clock_out, NOW()))) as total
-        FROM time_logs
-    ");
-    $totalHours = $stmt->fetch()['total'] ?? 0;
-    
-    // Usuarios activos hoy
-    $stmt = $pdo->query("
-        SELECT COUNT(DISTINCT user_id) as active 
-        FROM time_logs 
-        WHERE DATE(clock_in) = CURDATE()
-    ");
-    $activeToday = $stmt->fetch()['active'];
-    
-    // Últimos usuarios registrados
-    $stmt = $pdo->query("
-        SELECT id, name, email, role, created_at 
-        FROM users 
-        ORDER BY created_at DESC 
-        LIMIT 5
-    ");
-    $recentUsers = $stmt->fetchAll();
-    
-    // Proyectos con más horas
-    $stmt = $pdo->query("
+
+    // Configuración de horario laboral
+    $workDayMinutes = 8 * 60; // 8 horas = 480 minutos
+    $startHour = 9; // 09:00 entrada
+    $endHour = 18;  // 18:00 salida
+
+    // Obtener registros de hoy
+    $stmt = $pdo->prepare("
         SELECT 
-            p.name,
-            p.client,
-            p.budgeted_hours,
-            COALESCE(SUM(TIMESTAMPDIFF(MINUTE, tl.clock_in, COALESCE(tl.clock_out, NOW()))), 0) as logged_minutes
-        FROM projects p
-        LEFT JOIN time_logs tl ON p.id = tl.project_id
-        GROUP BY p.id
-        ORDER BY logged_minutes DESC
-        LIMIT 5
+            u.id as user_id,
+            u.name,
+            u.email,
+            tl.id as log_id,
+            tl.clock_in,
+            tl.clock_out,
+            tl.total_minutes,
+            p.name as project_name
+        FROM users u
+        LEFT JOIN time_logs tl ON u.id = tl.user_id AND DATE(tl.clock_in) = CURDATE()
+        WHERE u.role = 'employee'
+        ORDER BY u.name ASC
     ");
-    $topProjects = $stmt->fetchAll();
-    
+    $stmt->execute();
+    $employees = $stmt->fetchAll();
+
+    $redList = [];
+    $stats = [
+        'total_employees' => count($employees),
+        'active_now' => 0,
+        'incidences_today' => 0,
+        'late_arrivals' => 0,
+        'early_departures' => 0,
+        'insufficient_hours' => 0,
+        'average_hours' => 0
+    ];
+
+    $totalHoursToday = 0;
+
+    foreach ($employees as $emp) {
+        $incidences = [];
+        $minutesWorked = 0;
+        $minutesMissing = 0;
+
+        if ($emp['clock_in']) {
+            // Comprobar llegada tarde
+            $clockInHour = (int)date('H', strtotime($emp['clock_in']));
+            $clockInMinute = (int)date('i', strtotime($emp['clock_in']));
+            
+            if ($clockInHour > $startHour || ($clockInHour == $startHour && $clockInMinute > 0)) {
+                $lateMinutes = ($clockInHour - $startHour) * 60 + $clockInMinute;
+                $incidences[] = [
+                    'type' => 'late',
+                    'label' => 'Llegada Tarde',
+                    'value' => "+{$lateMinutes} min",
+                    'minutes' => $lateMinutes
+                ];
+                $stats['late_arrivals']++;
+            }
+
+            // Si ya ha salido
+            if ($emp['clock_out']) {
+                $minutesWorked = $emp['total_minutes'];
+                $totalHoursToday += $minutesWorked;
+
+                // Comprobar salida anticipada
+                $clockOutHour = (int)date('H', strtotime($emp['clock_out']));
+                $clockOutMinute = (int)date('i', strtotime($emp['clock_out']));
+                
+                if ($clockOutHour < $endHour || ($clockOutHour == $endHour && $clockOutMinute < 0)) {
+                    $earlyMinutes = (($endHour - $clockOutHour) * 60) - $clockOutMinute;
+                    $incidences[] = [
+                        'type' => 'early',
+                        'label' => 'Salida Anticipada',
+                        'value' => "-{$earlyMinutes} min",
+                        'minutes' => $earlyMinutes
+                    ];
+                    $stats['early_departures']++;
+                }
+
+                // Comprobar horas insuficientes
+                if ($minutesWorked < $workDayMinutes) {
+                    $minutesMissing = $workDayMinutes - $minutesWorked;
+                    $incidences[] = [
+                        'type' => 'hours',
+                        'label' => 'Horas Insuficientes',
+                        'value' => "Faltan " . floor($minutesMissing/60) . "h " . ($minutesMissing%60) . "m",
+                        'minutes' => $minutesMissing
+                    ];
+                    $stats['insufficient_hours']++;
+                }
+
+            } else {
+                // Todavia trabajando
+                $stats['active_now']++;
+                $minutesWorked = time() - strtotime($emp['clock_in']);
+                $minutesWorked = floor($minutesWorked / 60);
+            }
+
+        } else {
+            $incidences[] = [
+                'type' => 'missing',
+                'label' => 'NO HA FICHADO HOY',
+                'value' => 'Sin registro',
+                'minutes' => 480
+            ];
+        }
+
+        if (!empty($incidences)) {
+            $stats['incidences_today']++;
+            $redList[] = [
+                'employee' => $emp,
+                'incidences' => $incidences,
+                'minutes_worked' => $minutesWorked,
+                'minutes_missing' => $minutesMissing
+            ];
+        }
+    }
+
+    if ($stats['total_employees'] > 0) {
+        $stats['average_hours'] = $totalHoursToday / $stats['total_employees'];
+    }
+
 } catch (PDOException $e) {
-    $roleCounts = ['admin' => 0, 'manager' => 0, 'employee' => 0];
-    $totalProjects = 0;
-    $totalHours = 0;
-    $activeToday = 0;
-    $recentUsers = [];
-    $topProjects = [];
+    $employees = [];
+    $redList = [];
 }
 
-// Función para formatear minutos a horas
 function formatMinutesToHours($minutes) {
     if ($minutes === null || $minutes == 0) return '0h 0m';
     $hours = floor($minutes / 60);
@@ -95,190 +152,126 @@ function formatMinutesToHours($minutes) {
 include '../includes/header.php';
 ?>
 
-<div class="app-layout">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="sidebar-label">Administración</div>
-        <nav class="sidebar-nav">
-            <a href="/admin/" class="sidebar-link active">
-                <span class="sidebar-icon">📊</span>
-                <span>Panel Principal</span>
-            </a>
-            <a href="/admin/users.php" class="sidebar-link">
-                <span class="sidebar-icon">👥</span>
-                <span>Usuarios</span>
-            </a>
-            <a href="/admin/projects.php" class="sidebar-link">
-                <span class="sidebar-icon">📁</span>
-                <span>Proyectos</span>
-            </a>
-            <a href="/admin/logs.php" class="sidebar-link">
-                <span class="sidebar-icon">📋</span>
-                <span>Registros</span>
-            </a>
-        </nav>
-        
-        <div class="sidebar-divider"></div>
-        
-        <div class="sidebar-label">Acciones</div>
-        <nav class="sidebar-nav">
-            <a href="/dashboard.php" class="sidebar-link">
-                <span class="sidebar-icon">←</span>
-                <span>Volver al Panel</span>
-            </a>
-            <a href="/logout.php" class="sidebar-link">
-                <span class="sidebar-icon">🚪</span>
-                <span>Cerrar Sesión</span>
-            </a>
-        </nav>
-    </aside>
-    
-    <!-- Main Content -->
-    <div class="main-area">
-        <div class="dashboard-header">
-            <h1 class="dashboard-welcome">⚙️ Panel de Administración</h1>
-            <p class="dashboard-subtitle">Gestiona usuarios, proyectos y registros del sistema</p>
-        </div>
-        
-        <!-- Stats Grid -->
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-icon stat-icon-blue">👥</div>
-                <div class="stat-content">
-                    <span class="stat-value"><?php echo array_sum($roleCounts); ?></span>
-                    <span class="stat-label">Total Usuarios</span>
-                    <div class="stat-change">
-                        <span class="badge badge-primary">Admin: <?php echo $roleCounts['admin'] ?? 0; ?></span>
-                        <span class="badge badge-warning">Jefes: <?php echo $roleCounts['manager'] ?? 0; ?></span>
-                        <span class="badge badge-gray">Empleados: <?php echo $roleCounts['employee'] ?? 0; ?></span>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-icon stat-icon-green">✅</div>
-                <div class="stat-content">
-                    <span class="stat-value"><?php echo $activeToday; ?></span>
-                    <span class="stat-label">Activos Hoy</span>
-                </div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-icon stat-icon-orange">📁</div>
-                <div class="stat-content">
-                    <span class="stat-value"><?php echo $totalProjects; ?></span>
-                    <span class="stat-label">Proyectos</span>
-                </div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-icon stat-icon-purple">⏱️</div>
-                <div class="stat-content">
-                    <span class="stat-value"><?php echo formatMinutesToHours($totalHours); ?></span>
-                    <span class="stat-label">Horas Totales</span>
-                </div>
+<div class="container-lg">
+    <div class="dashboard-header">
+        <h1 class="dashboard-welcome">🔴 Panel de Control de Asistencia</h1>
+        <p class="dashboard-subtitle">Vista global de incumplimientos y registro horario</p>
+    </div>
+
+    <!-- Estadísticas globales -->
+    <div class="stats-grid mb-xl">
+        <div class="stat-card">
+            <div class="stat-icon stat-icon-blue">👥</div>
+            <div class="stat-content">
+                <span class="stat-value"><?php echo $stats['total_employees']; ?></span>
+                <span class="stat-label">Empleados Totales</span>
             </div>
         </div>
-        
-        <!-- Recent Users & Top Projects -->
-        <div class="stats-grid">
-            <!-- Recent Users -->
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">🆕 Últimos Usuarios</h3>
-                    <a href="/admin/users.php" class="btn btn-sm btn-outline">Ver todos</a>
-                </div>
-                <div class="card-body">
-                    <?php if (empty($recentUsers)): ?>
-                        <p class="text-muted text-center">No hay usuarios registrados</p>
-                    <?php else: ?>
-                        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                            <?php foreach ($recentUsers as $u): ?>
-                            <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem; background: var(--gray-50); border-radius: var(--radius-md);">
-                                <div class="user-avatar" style="width: 32px; height: 32px; font-size: 0.75rem;">
-                                    <?php echo strtoupper(substr($u['name'], 0, 2)); ?>
-                                </div>
-                                <div style="flex: 1; min-width: 0;">
-                                    <div style="font-weight: 600; font-size: 0.875rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                                        <?php echo htmlspecialchars($u['name']); ?>
-                                    </div>
-                                    <div style="font-size: 0.75rem; color: var(--gray-500);">
-                                        <?php echo htmlspecialchars($u['email']); ?>
-                                    </div>
-                                </div>
-                                <span class="badge badge-<?php echo $u['role'] === 'admin' ? 'primary' : ($u['role'] === 'manager' ? 'warning' : 'gray'); ?>">
-                                    <?php echo $u['role']; ?>
-                                </span>
-                            </div>
-                            <?php endforeach; ?>
-                        </div>
-                    <?php endif; ?>
-                </div>
-            </div>
-            
-            <!-- Top Projects -->
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">🔥 Proyectos Más Activos</h3>
-                    <a href="/admin/projects.php" class="btn btn-sm btn-outline">Ver todos</a>
-                </div>
-                <div class="card-body">
-                    <?php if (empty($topProjects)): ?>
-                        <p class="text-muted text-center">No hay proyectos registrados</p>
-                    <?php else: ?>
-                        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                            <?php foreach ($topProjects as $p): ?>
-                            <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem; background: var(--gray-50); border-radius: var(--radius-md);">
-                                <div style="flex: 1; min-width: 0;">
-                                    <div style="font-weight: 600; font-size: 0.875rem;">
-                                        <?php echo htmlspecialchars($p['name']); ?>
-                                    </div>
-                                    <div style="font-size: 0.75rem; color: var(--gray-500);">
-                                        <?php echo htmlspecialchars($p['client']); ?>
-                                    </div>
-                                </div>
-                                <div style="text-align: right;">
-                                    <div style="font-weight: 600; font-size: 0.875rem; color: var(--primary);">
-                                        <?php echo formatMinutesToHours($p['logged_minutes']); ?>
-                                    </div>
-                                    <div style="font-size: 0.75rem; color: var(--gray-500);">
-                                        de <?php echo formatMinutesToHours($p['budgeted_hours'] * 60); ?>
-                                    </div>
-                                </div>
-                            </div>
-                            <?php endforeach; ?>
-                        </div>
-                    <?php endif; ?>
-                </div>
+        <div class="stat-card">
+            <div class="stat-icon stat-icon-green">✅</div>
+            <div class="stat-content">
+                <span class="stat-value"><?php echo $stats['active_now']; ?></span>
+                <span class="stat-label">Trabajando Ahora</span>
             </div>
         </div>
-        
-        <!-- Coming Soon Features -->
-        <div class="coming-soon mt-xl">
-            <div class="coming-soon-header">
-                <span class="coming-soon-icon">🔜</span>
-                <h3 class="coming-soon-title">Próximamente (ITERACIONES 3-5)</h3>
+        <div class="stat-card">
+            <div class="stat-icon stat-icon-red">⚠️</div>
+            <div class="stat-content">
+                <span class="stat-value" style="color: var(--danger); font-weight: 800;"><?php echo $stats['incidences_today']; ?></span>
+                <span class="stat-label">Incidencias Hoy</span>
             </div>
-            <div class="feature-preview">
-                <div class="preview-item">
-                    <span class="preview-icon">📊</span>
-                    <span class="preview-text">Informes detallados con gráficos Chart.js</span>
-                </div>
-                <div class="preview-item">
-                    <span class="preview-icon">🔔</span>
-                    <span class="preview-text">Sistema de alertas de incumplimiento</span>
-                </div>
-                <div class="preview-item">
-                    <span class="preview-icon">📈</span>
-                    <span class="preview-text">Comparativa presupuestado vs real</span>
-                </div>
-                <div class="preview-item">
-                    <span class="preview-icon">👥</span>
-                    <span class="preview-text">CRUD completo de empleados y proyectos</span>
-                </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon stat-icon-orange">⏱️</div>
+            <div class="stat-content">
+                <span class="stat-value"><?php echo formatMinutesToHours($stats['average_hours']); ?></span>
+                <span class="stat-label">Promedio Horas</span>
             </div>
         </div>
     </div>
+
+    <!-- Lista Roja de Incumplidores -->
+    <div class="card">
+        <div class="card-header" style="background: var(--danger-bg); border-bottom: 3px solid var(--danger);">
+            <h3 class="card-title" style="color: var(--danger);">🔴 LISTA ROJA - EMPLEADOS INCUMPLIDORES HOY</h3>
+            <span class="badge badge-danger" style="font-size: 1rem;"><?php echo count($redList); ?> incumplimientos</span>
+        </div>
+        <div class="card-body">
+
+            <?php if (!empty($redList)): ?>
+            <div class="red-list-container">
+                <?php foreach ($redList as $item): ?>
+                <div class="red-list-item">
+                    <div class="red-list-header">
+                        <div class="employee-info">
+                            <div class="employee-avatar">
+                                <?php echo strtoupper(substr($item['employee']['name'], 0, 1)); ?>
+                            </div>
+                            <div>
+                                <h4 class="employee-name"><?php echo htmlspecialchars($item['employee']['name']); ?></h4>
+                                <span class="employee-email"><?php echo htmlspecialchars($item['employee']['email']); ?></span>
+                            </div>
+                        </div>
+                        <div class="employee-hours">
+                            <div class="hours-worked"><?php echo formatMinutesToHours($item['minutes_worked']); ?></div>
+                            <span class="hours-label">Trabajado hoy</span>
+                        </div>
+                    </div>
+
+                    <div class="incidences-list">
+                        <?php foreach ($item['incidences'] as $inc): ?>
+                        <div class="incidence-badge incidence-<?php echo $inc['type']; ?>">
+                            <span class="incidence-icon">
+                                <?php 
+                                    if ($inc['type'] === 'late') echo '⏰';
+                                    elseif ($inc['type'] === 'early') echo '🏃';
+                                    elseif ($inc['type'] === 'hours') echo '⏱️';
+                                    else echo '❌';
+                                ?>
+                            </span>
+                            <span class="incidence-text">
+                                <strong><?php echo $inc['label']; ?></strong>
+                                <span class="incidence-value"><?php echo $inc['value']; ?></span>
+                            </span>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <?php else: ?>
+            <div class="text-center" style="padding: 3rem;">
+                <div style="font-size: 4rem; margin-bottom: 1rem;">✅</div>
+                <h3 style="color: var(--success); margin-bottom: 0.5rem;">¡TODO CORRECTO!</h3>
+                <p style="color: var(--gray-500);">Hoy no hay ningún empleado con incidencias o incumplimientos.</p>
+            </div>
+            <?php endif; ?>
+
+        </div>
+    </div>
+
+    <!-- Resumen de estadisticas -->
+    <div class="stats-grid mt-xl" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+        <div class="stat-card" style="border-left: 4px solid var(--warning);">
+            <div class="stat-content">
+                <span class="stat-value" style="color: var(--warning);"><?php echo $stats['late_arrivals']; ?></span>
+                <span class="stat-label">Llegadas Tarde</span>
+            </div>
+        </div>
+        <div class="stat-card" style="border-left: 4px solid var(--danger);">
+            <div class="stat-content">
+                <span class="stat-value" style="color: var(--danger);"><?php echo $stats['early_departures']; ?></span>
+                <span class="stat-label">Salidas Anticipadas</span>
+            </div>
+        </div>
+        <div class="stat-card" style="border-left: 4px solid #f97316;">
+            <div class="stat-content">
+                <span class="stat-value" style="color: #f97316;"><?php echo $stats['insufficient_hours']; ?></span>
+                <span class="stat-label">Horas Insuficientes</span>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 <?php include '../includes/footer.php'; ?>
