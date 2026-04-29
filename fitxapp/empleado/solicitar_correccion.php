@@ -7,7 +7,7 @@ require_once '../includes/db.php';
 require_once '../includes/auth.php';
 require_once '../includes/funciones.php';
 
-requerirLogin();
+requerirEmpleado();
 $usuario_id = $_SESSION['usuario_id'];
 
 $mensaje = '';
@@ -19,9 +19,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $hora_correcta = $_POST['hora_correcta'];
     $motivo = $_POST['motivo'];
     
-    $stmt = $pdo->prepare("INSERT INTO solicitudes_correccion (usuario_id, fecha, tipo_problema, hora_correcta, motivo, estado, fecha_solicitud)
-                           VALUES (?, ?, ?, ?, ?, 'pendiente', NOW())");
-    $stmt->execute([$usuario_id, $fecha, $tipo, $hora_correcta, $motivo]);
+    $stmt = $pdo->prepare("INSERT INTO solicitudes_correccion (usuario_id, motivo, descripcion, hora_correcta_entrada)
+                           VALUES (?, ?, ?, ?)");
+    $stmt->execute([$usuario_id, $tipo, $motivo, $fecha . ' ' . $hora_correcta]);
     
     $mensaje = '✅ Solicitud enviada correctamente';
 }

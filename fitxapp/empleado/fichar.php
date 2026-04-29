@@ -113,10 +113,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $token = generarTokenCSRF();
 
 // Obtener proyectos asignados
-$stmt = $pdo->prepare("SELECT p.id, p.nombre, p.color FROM proyectos p 
-                       JOIN usuario_proyectos up ON p.id = up.proyecto_id 
-                       WHERE up.usuario_id = ? AND p.estado = 'activo'");
-$stmt->execute([$usuario_id]);
+$stmt = $pdo->prepare("SELECT p.id, p.nombre, p.color FROM proyectos p WHERE p.estado = 'activo' ORDER BY p.nombre ASC");
+$stmt->execute();
 $proyectos = $stmt->fetchAll();
 
 // Obtener tipos de actividad
@@ -262,13 +260,33 @@ $actividades = $stmt->fetchAll();
                     </button>
 
                     <?php elseif ($estado['estado'] == 'fichado'): ?>
+                    
+                    <?php
+                    // Obtener datos del fichaje abierto
+                    $stmt = $pdo->prepare("SELECT p.nombre as proyecto, f.hora_entrada 
+                                           FROM fichajes f 
+                                           LEFT JOIN proyectos p ON f.proyecto_id = p.id 
+                                           WHERE f.id = ?");
+                    $stmt->execute([$fichajeAbierto['id']]);
+                    $datosFichaje = $stmt->fetch();
+                    ?>
 
-                    <button type="submit" name="accion" value="pausa_iniciar" class="btn btn-advertencia btn-fichaje" style="background: #f57c00;">
-                        <i class="fas fa-pause"></i> INICIAR PAUSA
+                    <div style="background: #e8f5e9; padding: 1.5rem; border-radius: 12px; margin-bottom: 1.5rem; border-left: 5px solid #43a047;">
+                        <h3 style="color: #2e7d32; font-size: 1.8rem; margin-bottom: 1rem;"><i class="fas fa-check-circle"></i> ✅ ESTÁS FICHADO</h3>
+                        <p style="font-size: 1.1rem; margin: 0.5rem 0;"><strong>Proyecto:</strong> <?php echo escape($datosFichaje['proyecto']); ?></p>
+                        <p style="font-size: 1.1rem; margin: 0.5rem 0;"><strong>Hora de entrada:</strong> <?php echo date('H:i:s', strtotime($datosFichaje['hora_entrada'])); ?></p>
+                    </div>
+
+                    <button type="submit" name="accion" value="pausa_iniciar" class="btn btn-advertencia btn-fichaje" style="background: #f57c00; margin-bottom: 0.7rem;">
+                        <i class="fas fa-mug-hot"></i> ☕ INICIAR PAUSA COMIDA
                     </button>
 
-                    <button type="submit" name="accion" value="salida" class="btn btn-peligro btn-fichaje" onclick="return confirm('¿Estás seguro que quieres finalizar tu jornada?')">
-                        <i class="fas fa-stop"></i> FINALIZAR JORNADA
+                    <button type="submit" name="accion" value="pausa_iniciar" class="btn btn-secundario btn-fichaje" style="margin-bottom: 1rem;">
+                        <i class="fas fa-pause"></i> ⏸ INICIAR DESCANSO
+                    </button>
+
+                    <button type="submit" name="accion" value="salida" class="btn btn-peligro btn-fichaje" onclick="return confirm('¿Estás seguro que quieres finalizar tu jornada?')" style="margin-top: 1rem;">
+                        <i class="fas fa-stop"></i> 🔴 FINALIZAR JORNADA
                     </button>
 
                     <?php elseif ($estado['estado'] == 'pausa'): ?>

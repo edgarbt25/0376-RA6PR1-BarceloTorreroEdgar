@@ -7,7 +7,7 @@ require_once '../includes/db.php';
 require_once '../includes/auth.php';
 require_once '../includes/funciones.php';
 
-requerirLogin();
+requerirEmpleado();
 $usuario_id = $_SESSION['usuario_id'];
 
 $mes = $_GET['mes'] ?? date('m');

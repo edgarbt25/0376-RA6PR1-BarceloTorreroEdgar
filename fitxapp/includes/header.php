@@ -36,7 +36,12 @@ setInterval(actualizarReloj, 1000);
 actualizarReloj();
 
 // Botón toggle sidebar
-document.getElementById('btnToggleSidebar').addEventListener('click', function() {
-    document.getElementById('sidebar').classList.toggle('cerrado');
+document.addEventListener('DOMContentLoaded', function() {
+    const btn = document.getElementById('btnToggleSidebar');
+    if(btn) {
+        btn.addEventListener('click', function() {
+            document.getElementById('sidebar').classList.toggle('cerrado');
+        });
+    }
 });
 </script>

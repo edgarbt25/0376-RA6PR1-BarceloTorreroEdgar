@@ -7,7 +7,7 @@ require_once '../includes/db.php';
 require_once '../includes/auth.php';
 require_once '../includes/funciones.php';
 
-requerirLogin();
+requerirEmpleado();
 $usuario_id = $_SESSION['usuario_id'];
 
 // Horas por día últimos 30 días
@@ -81,7 +81,7 @@ $proyectosHoras = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
         <div class="card" style="margin-top: 2rem;">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
                 <h3><i class="fas fa-table"></i> Resumen Mensual</h3>
-                <a href="../exportar.php?tipo=mis_horas" class="btn btn-primario" style="padding: 0.5rem 1rem; font-size: 0.9rem;">
+                <a href="exportar_csv.php" class="btn btn-primario" style="padding: 0.5rem 1rem; font-size: 0.9rem;">
                     <i class="fas fa-download"></i> Exportar CSV
                 </a>
             </div>

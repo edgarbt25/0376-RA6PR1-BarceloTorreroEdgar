@@ -118,7 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <td><?php echo $e['jueves_inicio'] ? date('H:i', strtotime($e['jueves_inicio'])).' - '.date('H:i', strtotime($e['jueves_fin'])) : ''; ?></td>
                             <td><?php echo $e['viernes_inicio'] ? date('H:i', strtotime($e['viernes_inicio'])).' - '.date('H:i', strtotime($e['viernes_fin'])) : ''; ?></td>
                             <td>
-                                <button onclick="editarHorario(<?php echo htmlspecialchars(json_encode($e), ENT_QUOTES); ?>)" class="btn btn-primario" style="padding: 0.4rem 0.6rem; font-size: 0.8rem;">
+                                <button onclick="editarHorario(<?php echo $e['id']; ?>, '<?php echo $e['lunes_inicio'] ?? ''; ?>', '<?php echo $e['lunes_fin'] ?? ''; ?>', '<?php echo $e['martes_inicio'] ?? ''; ?>', '<?php echo $e['martes_fin'] ?? ''; ?>', '<?php echo $e['miercoles_inicio'] ?? ''; ?>', '<?php echo $e['miercoles_fin'] ?? ''; ?>', '<?php echo $e['jueves_inicio'] ?? ''; ?>', '<?php echo $e['jueves_fin'] ?? ''; ?>', '<?php echo $e['viernes_inicio'] ?? ''; ?>', '<?php echo $e['viernes_fin'] ?? ''; ?>')" class="btn btn-primario" style="padding: 0.4rem 0.6rem; font-size: 0.8rem;">
                                     <i class="fas fa-edit"></i> Editar
                                 </button>
                             </td>
@@ -165,13 +165,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div>
 
 <script>
-function editarHorario(empleado) {
-    document.getElementById('modal_usuario_id').value = empleado.id;
-    const dias = ['lunes','martes','miercoles','jueves','viernes'];
-    dias.forEach(dia => {
-        document.getElementById('modal_'+dia+'_inicio').value = empleado[dia+'_inicio'] || '08:00';
-        document.getElementById('modal_'+dia+'_fin').value = empleado[dia+'_fin'] || '17:00';
-    });
+function editarHorario(id, lunes_inicio, lunes_fin, martes_inicio, martes_fin, miercoles_inicio, miercoles_fin, jueves_inicio, jueves_fin, viernes_inicio, viernes_fin) {
+    document.getElementById('modal_usuario_id').value = id;
+    
+    document.getElementById('modal_lunes_inicio').value = lunes_inicio || '08:00';
+    document.getElementById('modal_lunes_fin').value = lunes_fin || '17:00';
+    document.getElementById('modal_martes_inicio').value = martes_inicio || '08:00';
+    document.getElementById('modal_martes_fin').value = martes_fin || '17:00';
+    document.getElementById('modal_miercoles_inicio').value = miercoles_inicio || '08:00';
+    document.getElementById('modal_miercoles_fin').value = miercoles_fin || '17:00';
+    document.getElementById('modal_jueves_inicio').value = jueves_inicio || '08:00';
+    document.getElementById('modal_jueves_fin').value = jueves_fin || '17:00';
+    document.getElementById('modal_viernes_inicio').value = viernes_inicio || '08:00';
+    document.getElementById('modal_viernes_fin').value = viernes_fin || '17:00';
+
     document.getElementById('modalHorario').style.display = 'flex';
 }
 

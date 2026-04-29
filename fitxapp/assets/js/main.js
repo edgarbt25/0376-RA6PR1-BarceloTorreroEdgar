@@ -61,6 +61,21 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+// Toggle Sidebar
+function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('abierto');
+    document.querySelector('.main-contenedor').classList.toggle('sidebar-abierto');
+}
+
+// Inicializar sidebar toggle al cargar
+document.addEventListener('DOMContentLoaded', function() {
+    // Boton hamburguesa
+    const btnSidebar = document.getElementById('btnToggleSidebar');
+    if(btnSidebar) {
+        btnSidebar.addEventListener('click', toggleSidebar);
+    }
+});
+
 // Animación ripple
 const style = document.createElement('style');
 style.textContent = `

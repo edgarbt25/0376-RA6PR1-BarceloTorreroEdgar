@@ -7,8 +7,20 @@ require_once '../includes/db.php';
 require_once '../includes/auth.php';
 require_once '../includes/funciones.php';
 
-requerirLogin();
+requerirEmpleado();
 $usuario_id = $_SESSION['usuario_id'];
+
+// Procesar solicitud de proyecto
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion']) && $_POST['accion'] == 'solicitar_proyecto') {
+    $proyecto_id = $_POST['proyecto_solicitar'];
+    
+    $stmt = $pdo->prepare("INSERT INTO usuario_proyectos (usuario_id, proyecto_id, rol) 
+                           VALUES (?, ?, 'miembro')");
+    $stmt->execute([$usuario_id, $proyecto_id]);
+    
+    header('Location: mis_proyectos.php?mensaje=solicitud_enviada');
+    exit;
+}
 
 // Obtener proyectos del usuario
 $stmt = $pdo->prepare("SELECT p.*, up.rol
@@ -61,7 +73,24 @@ $proyectos = $stmt->fetchAll();
             <div style="grid-column: 1 / -1; text-align: center; padding: 3rem; color: #757575;">
                 <i class="fas fa-folder" style="font-size: 4rem; color: #bdbdbd; margin-bottom: 1rem;"></i>
                 <h3>No tienes proyectos asignados</h3>
-                <p>Contacta con tu supervisor para que te asigne proyectos.</p>
+                <p>Puedes solicitar unirte a un proyecto existente:</p>
+                
+                <form method="POST" style="margin-top: 2rem;">
+                    <div style="margin-bottom: 1rem; max-width: 350px; margin-left: auto; margin-right: auto;">
+                        <select name="proyecto_solicitar" class="form-control" required>
+                            <option value="">-- Seleccionar proyecto --</option>
+                            <?php
+                            $stmtTodos = $pdo->query("SELECT id, nombre FROM proyectos WHERE estado = 'activo' ORDER BY nombre ASC");
+                            while ($p = $stmtTodos->fetch()):
+                            ?>
+                            <option value="<?php echo $p['id']; ?>"><?php echo escape($p['nombre']); ?></option>
+                            <?php endwhile; ?>
+                        </select>
+                    </div>
+                    <button type="submit" name="accion" value="solicitar_proyecto" class="btn btn-primario">
+                        <i class="fas fa-paper-plane"></i> Solicitar unirse a proyecto
+                    </button>
+                </form>
             </div>
             <?php endif; ?>
         </div>
