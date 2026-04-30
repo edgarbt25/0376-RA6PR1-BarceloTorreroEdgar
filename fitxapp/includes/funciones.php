@@ -98,15 +98,14 @@ function obtenerEstadoEmpleado($usuario_id) {
         return ['estado' => 'fuera', 'texto' => 'Fuera de jornada', 'color' => '#c62828', 'icono' => 'fa-door-open'];
     }
     
-    // Verificar si está en pausa
+    // Verificar si hay pausa abierta
     $stmt = $pdo->prepare("SELECT id FROM pausas WHERE fichaje_id = ? AND hora_fin IS NULL LIMIT 1");
     $stmt->execute([$fichajeAbierto['id']]);
-    
     if ($stmt->rowCount() > 0) {
-        return ['estado' => 'pausa', 'texto' => 'En pausa', 'color' => '#f57c00', 'icono' => 'fa-pause-circle', 'fichaje' => $fichajeAbierto];
+        return ['estado' => 'pausa', 'texto' => 'En Pausa', 'color' => '#f57c00', 'icono' => 'fa-mug-hot'];
     }
     
-    return ['estado' => 'fichado', 'texto' => 'Trabajando', 'color' => '#43a047', 'icono' => 'fa-play-circle', 'fichaje' => $fichajeAbierto];
+    return ['estado' => 'fichado', 'texto' => 'En Jornada', 'color' => '#43a047', 'icono' => 'fa-play-circle'];
 }
 
 /**

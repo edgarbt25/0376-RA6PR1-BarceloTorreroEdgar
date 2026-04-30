@@ -11,15 +11,36 @@ requerirEmpleado();
 $usuario_id = $_SESSION['usuario_id'];
 
 // Procesar solicitud de proyecto
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion']) && $_POST['accion'] == 'solicitar_proyecto') {
-    $proyecto_id = $_POST['proyecto_solicitar'];
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
-    $stmt = $pdo->prepare("INSERT INTO usuario_proyectos (usuario_id, proyecto_id, rol) 
-                           VALUES (?, ?, 'miembro')");
-    $stmt->execute([$usuario_id, $proyecto_id]);
+    // Añadir proyecto
+    if (isset($_POST['accion']) && $_POST['accion'] == 'solicitar_proyecto') {
+        $proyecto_id = $_POST['proyecto_solicitar'];
+        
+        // Verificar que ya no esta asignado
+        $stmtCheck = $pdo->prepare("SELECT id FROM usuario_proyectos WHERE usuario_id = ? AND proyecto_id = ? LIMIT 1");
+        $stmtCheck->execute([$usuario_id, $proyecto_id]);
+        
+        if ($stmtCheck->rowCount() == 0) {
+            $stmt = $pdo->prepare("INSERT INTO usuario_proyectos (usuario_id, proyecto_id, rol) 
+                                   VALUES (?, ?, 'miembro')");
+            $stmt->execute([$usuario_id, $proyecto_id]);
+        }
+        
+        header('Location: mis_proyectos.php?mensaje=proyecto_asignado');
+        exit;
+    }
     
-    header('Location: mis_proyectos.php?mensaje=solicitud_enviada');
-    exit;
+    // Eliminar proyecto
+    if (isset($_POST['accion']) && $_POST['accion'] == 'eliminar_proyecto') {
+        $proyecto_id = $_POST['proyecto_id'];
+        
+        $stmt = $pdo->prepare("DELETE FROM usuario_proyectos WHERE usuario_id = ? AND proyecto_id = ? LIMIT 1");
+        $stmt->execute([$usuario_id, $proyecto_id]);
+        
+        header('Location: mis_proyectos.php?mensaje=proyecto_eliminado');
+        exit;
+    }
 }
 
 // Obtener proyectos del usuario
@@ -30,6 +51,13 @@ $stmt = $pdo->prepare("SELECT p.*, up.rol
                        ORDER BY p.nombre ASC");
 $stmt->execute([$usuario_id]);
 $proyectos = $stmt->fetchAll();
+
+// Obtener proyectos NO asignados al usuario
+$stmt = $pdo->prepare("SELECT id, nombre FROM proyectos 
+                       WHERE estado = 'activo' AND id NOT IN (SELECT proyecto_id FROM usuario_proyectos WHERE usuario_id = ?)
+                       ORDER BY nombre ASC");
+$stmt->execute([$usuario_id]);
+$proyectosDisponibles = $stmt->fetchAll();
 
 ?>
 <!DOCTYPE html>
@@ -65,34 +93,43 @@ $proyectos = $stmt->fetchAll();
                         <span>Cliente: <strong><?php echo escape($p['cliente']); ?></strong></span>
                         <span class="badge verde"><?php echo escape($p['rol']); ?></span>
                     </div>
+                    
+                    <form method="POST" style="margin-top: 1.5rem;">
+                        <input type="hidden" name="proyecto_id" value="<?php echo $p['id']; ?>">
+                        <button type="submit" name="accion" value="eliminar_proyecto" class="btn btn-peligro" style="width: 100%;" onclick="return confirm('¿Seguro que quieres abandonar este proyecto?')">
+                            <i class="fas fa-times"></i> Abandonar Proyecto
+                        </button>
+                    </form>
                 </div>
             </div>
             <?php endforeach; ?>
 
-            <?php if (count($proyectos) == 0): ?>
-            <div style="grid-column: 1 / -1; text-align: center; padding: 3rem; color: #757575;">
-                <i class="fas fa-folder" style="font-size: 4rem; color: #bdbdbd; margin-bottom: 1rem;"></i>
-                <h3>No tienes proyectos asignados</h3>
-                <p>Puedes solicitar unirte a un proyecto existente:</p>
-                
-                <form method="POST" style="margin-top: 2rem;">
-                    <div style="margin-bottom: 1rem; max-width: 350px; margin-left: auto; margin-right: auto;">
-                        <select name="proyecto_solicitar" class="form-control" required>
-                            <option value="">-- Seleccionar proyecto --</option>
-                            <?php
-                            $stmtTodos = $pdo->query("SELECT id, nombre FROM proyectos WHERE estado = 'activo' ORDER BY nombre ASC");
-                            while ($p = $stmtTodos->fetch()):
-                            ?>
-                            <option value="<?php echo $p['id']; ?>"><?php echo escape($p['nombre']); ?></option>
-                            <?php endwhile; ?>
-                        </select>
+        </div>
+        
+        <!-- Añadir nuevo proyecto SIEMPRE visible incluso si ya tienes proyectos -->
+        <div class="card" style="margin-top: 2rem;">
+            <div class="card-header" style="background: #1a237e; color: white;">
+                <h3 style="margin: 0;"><i class="fas fa-plus"></i> Añadir nuevo proyecto</h3>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div style="display: flex; gap: 1rem; align-items: end;">
+                        <div style="flex: 1;">
+                            <label class="form-label">Selecciona proyecto</label>
+                            <select name="proyecto_solicitar" class="form-control" required style="padding: 0.8rem;">
+                                <option value="">-- Seleccionar proyecto --</option>
+                                <?php foreach ($proyectosDisponibles as $p): ?>
+                                <option value="<?php echo $p['id']; ?>"><?php echo escape($p['nombre']); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <button type="submit" name="accion" value="solicitar_proyecto" class="btn btn-primario">
+                            <i class="fas fa-plus"></i> Añadir Proyecto
+                        </button>
                     </div>
-                    <button type="submit" name="accion" value="solicitar_proyecto" class="btn btn-primario">
-                        <i class="fas fa-paper-plane"></i> Solicitar unirse a proyecto
-                    </button>
                 </form>
             </div>
-            <?php endif; ?>
+        </div>
         </div>
 
     </div>

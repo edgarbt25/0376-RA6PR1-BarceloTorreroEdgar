@@ -3,6 +3,10 @@
  * FitxApp - Administrador - Añadir Nuevo Empleado
  */
 
+// Habilitar visualización de errores para depuración
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
 require_once '../includes/db.php';
 require_once '../includes/auth.php';
 require_once '../includes/funciones.php';
@@ -12,21 +16,28 @@ requerirAdmin();
 $mensaje = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $nombre = $_POST['nombre'];
-    $apellidos = $_POST['apellidos'];
-    $email = $_POST['email'];
-    $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
-    $departamento_id = $_POST['departamento_id'];
-    $cargo = $_POST['cargo'];
-    $rol = $_POST['rol'];
-    
-    $stmt = $pdo->prepare("INSERT INTO usuarios (nombre, apellidos, email, password, departamento_id, cargo, rol, activo, fecha_creacion)
-                           VALUES (?, ?, ?, ?, ?, ?, ?, 1, NOW())");
-    $stmt->execute([$nombre, $apellidos, $email, $password, $departamento_id, $cargo, $rol]);
-    
-    registrarLog($_SESSION['usuario_id'], 'crear_empleado', 'usuarios', $pdo->lastInsertId());
-    header('Location: empleados.php?mensaje=empleado_creado');
-    exit;
+    if (!verificarTokenCSRF($_POST['csrf_token'] ?? '')) {
+        $mensaje = 'Error de seguridad. Inténtelo de nuevo.';
+    } else {
+        $nombre = trim($_POST['nombre']);
+        $apellidos = trim($_POST['apellidos']);
+        $email = trim($_POST['email']);
+        $telefono = trim($_POST['telefono'] ?? '');
+        $dni = trim($_POST['dni'] ?? '');
+        $departamento_id = (int)$_POST['departamento_id'];
+        $cargo = trim($_POST['cargo']);
+        $rol = trim($_POST['rol']);
+        $fecha_alta = trim($_POST['fecha_alta'] ?? date('Y-m-d'));
+        $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
+        
+        $stmt = $pdo->prepare("INSERT INTO usuarios (nombre, apellidos, email, telefono, dni, fecha_alta, password, departamento_id, cargo, rol, activo, fecha_creacion)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW())");
+        $stmt->execute([$nombre, $apellidos, $email, $telefono, $dni, $fecha_alta, $password, $departamento_id, $cargo, $rol]);
+        
+        registrarLog($_SESSION['usuario_id'], 'crear_empleado', 'usuarios', $pdo->lastInsertId());
+        header('Location: empleados.php?mensaje=empleado_creado');
+        exit;
+    }
 }
 
 // Obtener departamentos
@@ -66,6 +77,7 @@ $departamentos = $stmt->fetchAll();
             </div>
             <div class="card-body">
                 <form method="POST">
+                    <input type="hidden" name="csrf_token" value="<?php echo escape(generarTokenCSRF()); ?>">
 
                     <!-- Pestañas -->
                     <div class="tabs" style="display: flex; gap: 0.5rem; margin-bottom: 2rem; border-bottom: 2px solid #eee; padding-bottom: 1rem;">

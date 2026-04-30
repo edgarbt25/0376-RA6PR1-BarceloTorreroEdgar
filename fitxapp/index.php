@@ -13,12 +13,59 @@ if (estaAutenticado()) {
 }
 
 $error = '';
+$exito = '';
 
-// Procesar login
+// Verificar mensajes de notificación
+if (isset($_GET['mensaje']) && $_GET['mensaje'] === 'sesion_cerrada') {
+    $exito = 'Sesión cerrada correctamente. Hasta pronto!';
+}
+
+// Procesar formulario
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verificarTokenCSRF($_POST['csrf_token'] ?? '')) {
         $error = 'Error de seguridad. Inténtelo de nuevo.';
-    } else {
+    } 
+    // Procesar Registro
+    elseif (isset($_POST['accion']) && $_POST['accion'] === 'registro') {
+        $nombre = trim($_POST['nombre'] ?? '');
+        $apellidos = trim($_POST['apellidos'] ?? '');
+        $email = trim($_POST['email_registro'] ?? '');
+        $password = $_POST['password_registro'] ?? '';
+        
+        if (empty($nombre) || empty($apellidos) || empty($email) || empty($password)) {
+            $error = 'Todos los campos son obligatorios';
+        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $error = 'Introduzca un email válido';
+        } elseif (strlen($password) < 6) {
+            $error = 'La contraseña debe tener al menos 6 caracteres';
+        } else {
+            // Verificar si el email ya existe
+            $stmt = $pdo->prepare("SELECT id FROM usuarios WHERE email = ? LIMIT 1");
+            $stmt->execute([$email]);
+            if ($stmt->rowCount() > 0) {
+                $error = 'Este correo electrónico ya está registrado';
+            } else {
+                // Crear usuario nuevo (rol empleado, desactivado por defecto)
+                $stmt = $pdo->prepare("INSERT INTO usuarios (nombre, apellidos, email, password, rol, activo, fecha_creacion) 
+                                       VALUES (?, ?, ?, ?, 'empleado', 0, NOW())");
+                $stmt->execute([
+                    $nombre,
+                    $apellidos,
+                    $email,
+                    password_hash($password, PASSWORD_DEFAULT)
+                ]);
+                
+                registrarLog(null, 'registro_usuario', 'usuarios', $pdo->lastInsertId(), null, [
+                    'email' => $email,
+                    'nombre' => $nombre
+                ]);
+                
+                $exito = 'Cuenta creada correctamente! Un administrador deberá activar tu cuenta antes de que puedas acceder.';
+            }
+        }
+    }
+    // Procesar Login
+    else {
         $email = trim($_POST['email'] ?? '');
         $password = $_POST['password'] ?? '';
         
@@ -323,6 +370,43 @@ $token = generarTokenCSRF();
             font-size: 0.9rem;
         }
         
+        .exito {
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 1rem;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            border-left: 4px solid #2e7d32;
+            font-size: 0.9rem;
+        }
+        
+        .pestanas {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .pestana {
+            padding: 0.75rem;
+            border: none;
+            border-radius: 8px;
+            background: #f5f5f5;
+            color: #757575;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .pestana.activa {
+            background: linear-gradient(135deg, #1976d2, #1a237e);
+            color: white;
+        }
+        
+        .pestana:hover {
+            transform: translateY(-1px);
+        }
+        
         footer {
             position: fixed;
             bottom: 0;
@@ -387,32 +471,87 @@ $token = generarTokenCSRF();
                 </div>
                 <?php endif; ?>
                 
-                <form method="POST" autocomplete="off">
-                    <input type="hidden" name="csrf_token" value="<?php echo escape($token); ?>">
-                    
-                    <div class="grupo-formulario">
-                        <input type="email" name="email" id="email" placeholder=" " value="<?php echo escape($_COOKIE['fitxapp_email'] ?? ''); ?>" required>
-                        <label for="email">Correo electrónico</label>
-                        <i class="fas fa-envelope"></i>
-                    </div>
-                    
-                    <div class="grupo-formulario">
-                        <input type="password" name="password" id="password" placeholder=" " required>
-                        <label for="password">Contraseña</label>
-                        <i class="fas fa-lock"></i>
-                    </div>
-                    
-                    <div style="margin: 1rem 0;">
-                        <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
-                            <input type="checkbox" name="recordarme" value="1">
-                            <span style="color:#616161; font-size:0.9rem;">Recordarme 30 días</span>
-                        </label>
-                    </div>
-                    
-                    <button type="submit" class="btn-login">
+                <?php if ($exito): ?>
+                <div class="exito">
+                    <i class="fas fa-check-circle"></i> <?php echo $exito; ?>
+                </div>
+                <?php endif; ?>
+                
+                <!-- Pestañas de selección -->
+                <div class="pestanas">
+                    <button class="pestana activa" id="pestana-login" onclick="cambiarPestana('login')">
                         <i class="fas fa-sign-in-alt"></i> Iniciar Sesión
                     </button>
-                </form>
+                    <button class="pestana" id="pestana-register" onclick="cambiarPestana('register')">
+                        <i class="fas fa-user-plus"></i> Registrarse
+                    </button>
+                </div>
+                
+                <!-- Formulario Login -->
+                <div id="form-login">
+                    <form method="POST" autocomplete="off">
+                        <input type="hidden" name="csrf_token" value="<?php echo escape($token); ?>">
+                        
+                        <div class="grupo-formulario">
+                            <input type="email" name="email" id="email" placeholder=" " value="<?php echo escape($_COOKIE['fitxapp_email'] ?? ''); ?>" required>
+                            <label for="email">Correo electrónico</label>
+                            <i class="fas fa-envelope"></i>
+                        </div>
+                        
+                        <div class="grupo-formulario">
+                            <input type="password" name="password" id="password" placeholder=" " required>
+                            <label for="password">Contraseña</label>
+                            <i class="fas fa-lock"></i>
+                        </div>
+                        
+                        <div style="margin: 1rem 0;">
+                            <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
+                                <input type="checkbox" name="recordarme" value="1">
+                                <span style="color:#616161; font-size:0.9rem;">Recordarme 30 días</span>
+                            </label>
+                        </div>
+                        
+                        <button type="submit" class="btn-login">
+                            <i class="fas fa-sign-in-alt"></i> Iniciar Sesión
+                        </button>
+                    </form>
+                </div>
+                
+                <!-- Formulario Registro -->
+                <div id="form-register" style="display: none;">
+                    <form method="POST" autocomplete="off">
+                        <input type="hidden" name="accion" value="registro">
+                        <input type="hidden" name="csrf_token" value="<?php echo escape($token); ?>">
+                        
+                        <div class="grupo-formulario">
+                            <input type="text" name="nombre" id="nombre" placeholder=" " required>
+                            <label for="nombre">Nombre</label>
+                            <i class="fas fa-user"></i>
+                        </div>
+                        
+                        <div class="grupo-formulario">
+                            <input type="text" name="apellidos" id="apellidos" placeholder=" " required>
+                            <label for="apellidos">Apellidos</label>
+                            <i class="fas fa-user"></i>
+                        </div>
+                        
+                        <div class="grupo-formulario">
+                            <input type="email" name="email_registro" id="email_registro" placeholder=" " required>
+                            <label for="email_registro">Correo electrónico</label>
+                            <i class="fas fa-envelope"></i>
+                        </div>
+                        
+                        <div class="grupo-formulario">
+                            <input type="password" name="password_registro" id="password_registro" placeholder=" " required>
+                            <label for="password_registro">Contraseña</label>
+                            <i class="fas fa-lock"></i>
+                        </div>
+                        
+                        <button type="submit" class="btn-login">
+                            <i class="fas fa-user-plus"></i> Crear Cuenta
+                        </button>
+                    </form>
+                </div>
                 
                 <div class="credenciales-demo">
                     <h4><i class="fas fa-info-circle"></i> Credenciales de demostración:</h4>
@@ -422,6 +561,22 @@ $token = generarTokenCSRF();
             </div>
         </div>
     </div>
+
+    <script>
+        function cambiarPestana(tipo) {
+            if(tipo === 'login') {
+                document.getElementById('form-login').style.display = 'block';
+                document.getElementById('form-register').style.display = 'none';
+                document.getElementById('pestana-login').classList.add('activa');
+                document.getElementById('pestana-register').classList.remove('activa');
+            } else {
+                document.getElementById('form-login').style.display = 'none';
+                document.getElementById('form-register').style.display = 'block';
+                document.getElementById('pestana-login').classList.remove('activa');
+                document.getElementById('pestana-register').classList.add('activa');
+            }
+        }
+    </script>
 
     <footer>
         © <?php echo date('Y'); ?> FitxApp - Conforme al Estatuto de los Trabajadores Art. 34.9 y RGPD

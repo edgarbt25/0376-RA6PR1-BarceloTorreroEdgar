@@ -38,6 +38,8 @@ CREATE TABLE usuarios (
   departamento_id INT NULL,
   cargo VARCHAR(100),
   telefono VARCHAR(20),
+  dni VARCHAR(20),
+  fecha_alta DATE NULL,
   avatar VARCHAR(255) NULL,
   activo TINYINT(1) DEFAULT 1,
   fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,

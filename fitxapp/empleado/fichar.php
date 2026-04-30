@@ -3,9 +3,12 @@
  * FitxApp - Página de Fichaje de Empleado
  */
 
-require_once '../includes/db.php';
-require_once '../includes/auth.php';
-require_once '../includes/funciones.php';
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
+require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/funciones.php';
 
 requerirEmpleado();
 
@@ -34,11 +37,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $latitud = $_POST['latitud'] ?? null;
                 $longitud = $_POST['longitud'] ?? null;
                 
-                $stmt = $pdo->prepare("INSERT INTO fichajes 
-                    (usuario_id, proyecto_id, actividad_id, hora_entrada, descripcion, ip_address, latitud, longitud)
-                    VALUES (?, ?, ?, NOW(), ?, ?, ?, ?)");
-                
-                $stmt->execute([$usuario_id, $proyecto_id, $actividad_id, $descripcion, $ip, $latitud, $longitud]);
+        $stmt = $pdo->prepare("INSERT INTO fichajes 
+            (usuario_id, proyecto_id, tipo_entrada, hora_entrada, descripcion, ip_address, latitud, longitud)
+            VALUES (?, ?, 'normal', NOW(), ?, ?, ?, ?)");
+        
+        $stmt->execute([$usuario_id, $proyecto_id, $descripcion, $ip, $latitud, $longitud]);
                 
                 registrarLog($usuario_id, 'fichaje_entrada', 'fichajes', $pdo->lastInsertId());
                 enviarNotificacion($usuario_id, 'exito', 'Has iniciado tu jornada correctamente');

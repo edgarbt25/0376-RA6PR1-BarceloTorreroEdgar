@@ -3,6 +3,10 @@
  * FitxApp - Administrador - Añadir Nuevo Proyecto
  */
 
+// Habilitar visualización de errores para depuración
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
 require_once '../includes/db.php';
 require_once '../includes/auth.php';
 require_once '../includes/funciones.php';
@@ -10,19 +14,26 @@ require_once '../includes/funciones.php';
 requerirAdmin();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $nombre = $_POST['nombre'];
-    $descripcion = $_POST['descripcion'];
-    $cliente = $_POST['cliente'];
-    $horas_presupuestadas = $_POST['horas_presupuestadas'];
-    $color = $_POST['color'];
-    
-    $stmt = $pdo->prepare("INSERT INTO proyectos (nombre, descripcion, cliente, horas_presupuestadas, estado, color, fecha_creacion)
-                           VALUES (?, ?, ?, ?, 'activo', ?, NOW())");
-    $stmt->execute([$nombre, $descripcion, $cliente, $horas_presupuestadas, $color]);
-    
-    registrarLog($_SESSION['usuario_id'], 'crear_proyecto', 'proyectos', $pdo->lastInsertId());
-    header('Location: proyectos.php?mensaje=proyecto_creado');
-    exit;
+    if (!verificarTokenCSRF($_POST['csrf_token'] ?? '')) {
+        $mensaje = 'Error de seguridad. Inténtelo de nuevo.';
+    } else {
+        $nombre = trim($_POST['nombre']);
+        $descripcion = trim($_POST['descripcion']);
+        $cliente = trim($_POST['cliente']);
+        $horas_presupuestadas = (float)$_POST['horas_presupuestadas'];
+        $fecha_inicio = trim($_POST['fecha_inicio'] ?? date('Y-m-d'));
+        $fecha_fin = trim($_POST['fecha_fin'] ?? '');
+        $num_empleados = (int)$_POST['num_empleados'] ?? 1;
+        $color = trim($_POST['color']);
+        
+        $stmt = $pdo->prepare("INSERT INTO proyectos (nombre, descripcion, cliente, horas_presupuestadas, estado, color, fecha_creacion)
+                               VALUES (?, ?, ?, ?, 'activo', ?, NOW())");
+        $stmt->execute([$nombre, $descripcion, $cliente, $horas_presupuestadas, $color]);
+        
+        registrarLog($_SESSION['usuario_id'], 'crear_proyecto', 'proyectos', $pdo->lastInsertId());
+        header('Location: proyectos.php?mensaje=proyecto_creado');
+        exit;
+    }
 }
 
 ?>
@@ -58,6 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
             <div class="card-body">
                 <form method="POST">
+                    <input type="hidden" name="csrf_token" value="<?php echo escape(generarTokenCSRF()); ?>">
 
                     <!-- Pestañas -->
                     <div class="tabs" style="display: flex; gap: 0.5rem; margin-bottom: 2rem; border-bottom: 2px solid #eee; padding-bottom: 1rem;">

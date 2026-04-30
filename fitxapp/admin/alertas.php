@@ -99,8 +99,15 @@ usort($empleados, fn($a, $b) => $a['porcentaje'] <=> $b['porcentaje']);
                             <td><?php echo escape($emp['departamento'] ?? '-'); ?></td>
                             <td><?php echo $emp['horas_esperadas']; ?>h</td>
                             <td><?php echo $emp['horas_trabajadas']; ?>h</td>
-                            <td style="color: <?php echo $emp['diferencia'] >= 0 ? '#43a047' : '#c62828'; ?>;">
-                                <?php echo $emp['diferencia'] > 0 ? '+' : ''; ?><?php echo $emp['diferencia']; ?>h
+                            <td style="color: <?php echo (isset($emp['diferencia']) && $emp['diferencia'] >= 0) ? '#43a047' : '#c62828'; ?>;">
+                                <?php 
+                                if (isset($emp['diferencia'])) {
+                                    echo $emp['diferencia'] > 0 ? '+' : '';
+                                    echo $emp['diferencia'];
+                                } else {
+                                    echo 0;
+                                }
+                                ?>h
                             </td>
                             <td>
                                 <div style="display: flex; align-items: center; gap: 0.5rem;">

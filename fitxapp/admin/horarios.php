@@ -23,44 +23,49 @@ $empleados = $stmt->fetchAll();
 
 // Guardar cambios de horario
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $usuario_id = $_POST['usuario_id'];
-    $dias = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
-    
-    $camposInsert = [];
-    $valoresUpdate = [];
-    foreach ($dias as $dia) {
-        $camposInsert[] = $dia.'_inicio';
-        $camposInsert[] = $dia.'_fin';
-        $valoresUpdate[] = $dia.'_inicio = ?';
-        $valoresUpdate[] = $dia.'_fin = ?';
+    if (!verificarTokenCSRF($_POST['csrf_token'] ?? '')) {
+        header('Location: horarios.php?mensaje=error_seguridad');
+        exit;
     }
     
-    $sql = "INSERT INTO horarios (usuario_id, ".implode(', ', $camposInsert).", horas_dia, activo)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
-            ON DUPLICATE KEY UPDATE ".implode(', ', $valoresUpdate).", horas_dia = ?, activo = 1";
+    $usuario_id = (int)$_POST['usuario_id'];
     
-    $params = [
-        $usuario_id,
-        $_POST['lunes_inicio'], $_POST['lunes_fin'],
-        $_POST['martes_inicio'], $_POST['martes_fin'],
-        $_POST['miercoles_inicio'], $_POST['miercoles_fin'],
-        $_POST['jueves_inicio'], $_POST['jueves_fin'],
-        $_POST['viernes_inicio'], $_POST['viernes_fin'],
-        '00:00', '00:00',
-        '00:00', '00:00',
-        8,
-        $_POST['lunes_inicio'], $_POST['lunes_fin'],
-        $_POST['martes_inicio'], $_POST['martes_fin'],
-        $_POST['miercoles_inicio'], $_POST['miercoles_fin'],
-        $_POST['jueves_inicio'], $_POST['jueves_fin'],
-        $_POST['viernes_inicio'], $_POST['viernes_fin'],
-        '00:00', '00:00',
-        '00:00', '00:00',
-        8
-    ];
+    // Agregar segundos a las horas para formato TIME correcto
+    function formatearHora($hora) {
+        if(empty($hora)) return null;
+        if(strlen($hora) == 5) return $hora . ':00';
+        return $hora;
+    }
+    
+    $dias = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'];
+    
+    $campos = ['usuario_id'];
+    $valores = [$usuario_id];
+    $actualizaciones = [];
+    
+    foreach ($dias as $dia) {
+        $campos[] = $dia.'_inicio';
+        $campos[] = $dia.'_fin';
+        $valores[] = formatearHora($_POST[$dia.'_inicio']);
+        $valores[] = formatearHora($_POST[$dia.'_fin']);
+        $actualizaciones[] = $dia.'_inicio = VALUES('.$dia.'_inicio)';
+        $actualizaciones[] = $dia.'_fin = VALUES('.$dia.'_fin)';
+    }
+    
+    $campos[] = 'horas_dia';
+    $campos[] = 'activo';
+    $valores[] = 8;
+    $valores[] = 1;
+    
+    $actualizaciones[] = 'horas_dia = VALUES(horas_dia)';
+    $actualizaciones[] = 'activo = 1';
+    
+    $sql = "INSERT INTO horarios (".implode(', ', $campos).", fecha_creacion)
+            VALUES (".implode(', ', array_fill(0, count($campos), '?')).", NOW())
+            ON DUPLICATE KEY UPDATE ".implode(', ', $actualizaciones);
     
     $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
+    $stmt->execute($valores);
     
     registrarLog($_SESSION['usuario_id'], 'editar_horario', 'horarios', $usuario_id);
     header('Location: horarios.php?mensaje=horario_actualizado');
@@ -139,7 +144,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <h3>Editar Horario</h3>
             <span class="modal-cerrar">&times;</span>
         </div>
-        <form method="POST">
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="<?php echo escape(generarTokenCSRF()); ?>">
             <div class="modal-body">
                 <input type="hidden" name="usuario_id" id="modal_usuario_id">
                 <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 1rem;">
@@ -179,11 +185,20 @@ function editarHorario(id, lunes_inicio, lunes_fin, martes_inicio, martes_fin, m
     document.getElementById('modal_viernes_inicio').value = viernes_inicio || '08:00';
     document.getElementById('modal_viernes_fin').value = viernes_fin || '17:00';
 
-    document.getElementById('modalHorario').style.display = 'flex';
+    document.getElementById('modalHorario').classList.add('activo');
 }
 
 document.querySelectorAll('.modal-cerrar, .modal-cancelar').forEach(el => {
-    el.addEventListener('click', () => document.getElementById('modalHorario').style.display = 'none');
+    el.addEventListener('click', () => {
+        document.getElementById('modalHorario').classList.remove('activo');
+    });
+});
+
+// Cerrar al hacer clic fuera del modal
+document.getElementById('modalHorario').addEventListener('click', function(e) {
+    if (e.target === this) {
+        this.classList.remove('activo');
+    }
 });
 </script>
 
